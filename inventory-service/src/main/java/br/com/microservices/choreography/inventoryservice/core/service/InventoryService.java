@@ -8,10 +8,9 @@ import br.com.microservices.choreography.inventoryservice.core.dto.OrderProducts
 import br.com.microservices.choreography.inventoryservice.core.enums.ESagaStatus;
 import br.com.microservices.choreography.inventoryservice.core.model.Inventory;
 import br.com.microservices.choreography.inventoryservice.core.model.OrderInventory;
-import br.com.microservices.choreography.inventoryservice.core.producer.KafkaProducer;
 import br.com.microservices.choreography.inventoryservice.core.repository.InventoryRepository;
 import br.com.microservices.choreography.inventoryservice.core.repository.OrderInventoryRepository;
-import br.com.microservices.choreography.inventoryservice.core.utils.JsonUtil;
+import br.com.microservices.choreography.inventoryservice.core.saga.SagaExecutionController;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,10 +23,9 @@ import java.time.LocalDateTime;
 public class InventoryService {
 
     private static final String CURRENT_SOURCE = "INVENTORY_SERVICE";
-    private final JsonUtil jsonUtil;
-    private final KafkaProducer producer;
     private final InventoryRepository inventoryRepository;
     private final OrderInventoryRepository orderInventoryRepository;
+    private final SagaExecutionController sagaExecutionController;
 
     public void updateInventory(Event event) {
         try {
@@ -39,7 +37,7 @@ public class InventoryService {
             log.error("Error trying to update the inventory: ", ex);
             handleInventoryUpdateFailure(event, ex.getMessage());
         }
-        producer.sendEvent(jsonUtil.toJson(event));
+        sagaExecutionController.handleSaga(event);
     }
 
     private void checkOrderInventory(Event event) {
@@ -122,7 +120,7 @@ public class InventoryService {
         } catch(Exception ex) {
             addHistory(event, "Rollback not executed for inventory: ".concat(ex.getMessage()));
         }
-        producer.sendEvent(jsonUtil.toJson(event));
+        sagaExecutionController.handleSaga(event);
     }
 
     private void returnInventoryToPreviousValues(Event event) {
